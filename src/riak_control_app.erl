@@ -1,4 +1,4 @@
-%% -------------------------------------------------------------------
+%% ------------------------------------------------------------------
 %%
 %% Copyright (c) 2011 Basho Technologies, Inc.
 %%
@@ -16,21 +16,32 @@
 %% specific language governing permissions and limitations
 %% under the License.
 %%
-%% -------------------------------------------------------------------
+%% ------------------------------------------------------------------
+%%
+%% @doc Application.
 
 -module(riak_control_app).
 
 -behaviour(application).
 
 %% Application callbacks
--export([start/2, stop/1]).
+-export([start/2,
+         stop/1]).
 
-%% ===================================================================
+%% ==================================================================
 %% Application callbacks
-%% ===================================================================
+%% ==================================================================
 
 start(_StartType, _StartArgs) ->
-    riak_control_sup:start_link().
+    case riak_control_sup:start_link() of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, Pid} ->
+            riak_core_capability:register({riak_control, member_info_version},
+                                          [v1, v0],
+                                          v0),
+            {ok, Pid}
+    end.
 
 stop(_State) ->
     ok.

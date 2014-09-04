@@ -17,6 +17,8 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
+%%
+%% @doc Application supervisor.
 
 -module(riak_control_sup).
 
@@ -43,44 +45,25 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    Riak_control_session={riak_control_session,
-                          {riak_control_session, start_link, []},
-                          permanent,
-                          5000,
-                          worker,
-                          [riak_control_session]},
+    RiakControlSession={riak_control_session,
+                         {riak_control_session, start_link, []},
+                         permanent,
+                         5000,
+                         worker,
+                         [riak_control_session]},
 
     %% determine if riak_control is enabled or not
-    case app_helper:get_env(riak_control,enabled,false) of
+    case app_helper:get_env(riak_control, enabled, false) of
         true ->
-            Resources = [{admin, admin_gui},
-                         {admin, admin_overview},
-                         {admin, admin_ring},
-                         {admin, admin_cluster},
-                         {admin, admin_cluster_join},
-                         {admin, admin_cluster_down},
-                         {admin, admin_node},
-                         {admin, admin_node_stop},
-                         {admin, admin_node_leave},
-                         {admin, admin_fallbacks}
-                        ],
-            Routes = lists:append([routes(E, M) || {E, M} <- Resources]),
-            [webmachine_router:add_route(R) || R <- Routes],
+            Resources = [riak_control_wm_gui,
+                         riak_control_wm_cluster,
+                         riak_control_wm_nodes,
+                         riak_control_wm_partitions],
+            Routes = lists:append([Resource:routes() || Resource <- Resources]),
+            _ = [webmachine_router:add_route(R) || R <- Routes],
 
             %% start riak control
-            {ok, { {one_for_one, 5, 10}, [Riak_control_session] } };
+            {ok, { {one_for_one, 5, 10}, [RiakControlSession] } };
         _ ->
             {ok, { {one_for_one, 5, 10}, [] } }
-    end.
-
-routes(Env, Module) ->
-    case app_helper:get_env(riak_control, Env, false) of
-        true ->
-            Module:routes();
-        false ->
-            [];
-        _Other ->
-            error_logger:warning_msg(
-              "Defaulting riak_control appenv '~p' to 'false'."
-              " Found unknown \"~p\"", [Env, _Other])
     end.
